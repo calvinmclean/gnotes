@@ -1,4 +1,4 @@
-# Gnotes
+# gnotes
 
 This is a simple program to populate templates for weekly notes in a file structure like this:
 ```
@@ -8,8 +8,13 @@ This is a simple program to populate templates for weekly notes in a file struct
 ```
 
 and file contents like this:
-```
+```md
 # Week of the 06th (March 2023)
+
+### Last Week's Remaining TODOs
+- [ ] Add more features to `gnotes`!
+- [ ] Automatically copy unchecked tasks from last week's note!
+
 
 ### Monday 06
 
