@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"html/template"
@@ -13,12 +14,19 @@ import (
 )
 
 const noteTemplate = `
-{{- $dayOne := (index . 0) -}}
-# Week of the {{DayWithSuffix $dayOne.Day}} ({{$dayOne.Month}} {{$dayOne.Year}})
-{{range $index, $date := .}}
-### {{$date.Weekday}} {{printf "%02d" $date.Day}}{{if ne $date.Month $dayOne.Month}} ({{$date.Month}} {{$date.Year}}){{end}}
+{{- $dayOne := (index .Dates 0) -}}
+# Week of the {{ DayWithSuffix $dayOne.Day }} ({{ $dayOne.Month }} {{ $dayOne.Year }})
+{{ if .TODOs }}
+### Last Week's Remaining TODOs
+{{ range $index, $todo := .TODOs }}
+{{- $todo }}
+{{ end }}
+{{ end -}}
 
-{{end}}`
+{{ range $index, $date := .Dates }}
+### {{ $date.Weekday }} {{ printf "%02d" $date.Day }}{{ if ne $date.Month $dayOne.Month }} ({{ $date.Month }} {{ $date.Year }}){{ end }}
+
+{{ end }}`
 
 func main() {
 	now := time.Now()
@@ -41,6 +49,11 @@ func main() {
 }
 
 func GenerateNote(dates []time.Time, wr io.Writer) error {
+	todos, err := GetLastWeekTODOs(dates[0])
+	if err != nil {
+		return fmt.Errorf("error getting TODOs from last week: %w", err)
+	}
+
 	return template.Must(
 		template.
 			New("note").
@@ -48,7 +61,10 @@ func GenerateNote(dates []time.Time, wr io.Writer) error {
 				"DayWithSuffix": DayWithSuffix,
 			}).
 			Parse(noteTemplate),
-	).Execute(wr, dates)
+	).Execute(wr, map[string]interface{}{
+		"Dates": dates,
+		"TODOs": todos,
+	})
 }
 
 func GetDates(now time.Time) []time.Time {
@@ -98,8 +114,6 @@ func CreateDirectoryAndFile(dayOne time.Time) (*os.File, error) {
 	}
 
 	if fileExists {
-		// append
-		// return os.OpenFile(path.Join(dir, filename), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		return nil, nil
 	}
 
@@ -126,6 +140,26 @@ func NotesPath(dayOne time.Time) (string, string) {
 	return dir, filename
 }
 
-// Ideas
-// - Maybe I should have it only add headers for a new day when I run it on that day which will help me remember to switch sections and will reduce clutter...
-// - Always copy TODOs to a central location and remove them once the original is checked off
+func GetLastWeekTODOs(dayOne time.Time) ([]string, error) {
+	lastWeekDayOne := dayOne.AddDate(0, 0, -7)
+
+	data, err := os.ReadFile(path.Join(NotesPath(lastWeekDayOne)))
+	if err != nil {
+		return nil, fmt.Errorf("error reading last week's note: %w", err)
+	}
+
+	todos := []string{}
+	for _, line := range bytes.Split(data, []byte{'\n'}) {
+		line = bytes.TrimSpace(line)
+
+		if len(line) < 6 {
+			continue
+		}
+
+		if bytes.Equal(line[:6], []byte{'-', ' ', '[', ' ', ']', ' '}) {
+			todos = append(todos, string(line))
+		}
+	}
+
+	return todos, nil
+}
