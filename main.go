@@ -51,7 +51,7 @@ func main() {
 func GenerateNote(dates []time.Time, wr io.Writer) error {
 	todos, err := GetLastWeekTODOs(dates[0])
 	if err != nil {
-		return fmt.Errorf("error getting TODOs from last week: %w", err)
+		fmt.Println("error getting TODOs from last week: %w", err)
 	}
 
 	return template.Must(
